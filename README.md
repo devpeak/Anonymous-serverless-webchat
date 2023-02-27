@@ -14,7 +14,7 @@
 
 <li>Run the following command in your terminal.</li>
 
-<pre>serverless create \--template-url https://github.com/devpeak/Anonymous-serverless-webchat/tree/master \--path serverless-chat </pre>
+<pre>serverless create \--template-url https://github.com/devpeak/Anonymous-serverless-webchat/tree/master/serverless-chat \--path serverless-chat</pre>
 
 <li>File ->Open Folder-> Projects -> serverless-chat</li>
 <li><strong>npm install</strong></li>
