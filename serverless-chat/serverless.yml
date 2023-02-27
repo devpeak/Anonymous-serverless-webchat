@@ -143,3 +143,36 @@ resources:
               WriteCapacityUnits: 1
             Projection:
               ProjectionType: "ALL"
+    MessagesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Messages
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        AttributeDefinitions:
+          - AttributeName: messageId
+            AttributeType: S
+          - AttributeName: createdAt
+            AtrributeType: N 
+          - AttributeName: nicknameToNickname
+            AttributeType: S
+        KeySchema: 
+          - AttributeName: messageId
+            KeyType: HASH
+          - AttributeName: createdAt
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: NicknameToNicknameIndex
+            KeySchema:
+              - AttributeName: nicknameToNickname
+                KeyType: HASH
+              - AttributeName: createdAt
+                KeyType: RANGE
+            ProvisionedThroughput:
+              ReadCapacityThroughput: 1
+              WriteCapacityUnits: 1
+            Projection:
+              ProjectionType: "ALL"
+
+          
