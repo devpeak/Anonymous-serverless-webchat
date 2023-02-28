@@ -29,6 +29,21 @@ provider:
 #  stage: dev
 #  region: us-east-1
 
+
+  environment:
+  WSSAPIGATEWAYENDPOINT:
+    Fn::Join:
+      - ""
+      - - Ref: WebsocketsApi
+        - ".execute-api."
+        - Ref: AWS::Region
+        - ".amazonaws.com/${sls:stage}"
+
+
+
+
+
+
   iam:
     role:
       statements:
