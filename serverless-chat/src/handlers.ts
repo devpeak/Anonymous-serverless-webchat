@@ -1,5 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyEventQueryStringParameters, APIGatewayProxyResult } from "aws-lambda";
-import AWS from "aws-sdk"
+import AWS, { AWSError } from "aws-sdk"
+import { CLIENT_RENEG_LIMIT } from "tls";
 
 type Action = "$connect" | "$disconnect" | "getMessages" | "sendMessages" | "getClients";
 
@@ -10,6 +11,10 @@ const responseOk={statusCode: 200,
 };
 
 const docClient = new AWS.DynamoDB.DocumentClient();
+
+const apiGw = new AWS.ApiGatewayManagementApi({
+  endpoint: process.env['WSSAPIGATEWAYENDPOINT']          //see serveless.yaml
+});
 export const handle = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   // wss://asds/aws.com?nickname=abc
   const connectionId = event.requestContext.connectionId as string;
@@ -21,7 +26,10 @@ export const handle = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
  
     case "$disconnect":
       return handleDisconnect(connectionId);
-      
+    
+    case "getClients":
+      return handleGetClients(connectionId);
+    
     default:
       return {
         statusCode: 500,
@@ -65,3 +73,35 @@ const handleConnect = async(
         
         return responseOk;
       };
+
+    const handleGetClients = async(connectionId: string): Promise<APIGatewayProxyResult> => {
+      const output = await docClient
+      .scan({
+        TableName: CLIENT_TABLE_NAME,
+      })
+      .promise();
+
+      const clients = output.Items || [];
+
+    try{
+      await apiGw.postToConnection({
+        ConnectionId: connectionId,
+        Data: JSON.stringify(clients),
+      })
+      .promise();
+    } catch (e) {
+
+      if ((e as AWSError).statusCode !== 410){
+        throw e;
+      }
+        await docClient.delete({
+          TableName: CLIENT_TABLE_NAME,
+          Key: {
+            connectionId,
+          },
+        })
+        .promise();  
+      } 
+    
+      return responseOk;
+  };
