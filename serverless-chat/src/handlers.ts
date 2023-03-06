@@ -4,6 +4,11 @@ import { CLIENT_RENEG_LIMIT } from "tls";
 
 type Action = "$connect" | "$disconnect" | "getMessages" | "sendMessages" | "getClients";
 
+type Client = {
+  connectionId: string
+  nickname: string
+}
+
 const CLIENT_TABLE_NAME = "Clients";
 
 const responseOk={statusCode: 200,
@@ -58,6 +63,8 @@ const handleConnect = async(
      })
      .promise();
     
+    await notifyClients(connectionId);
+
     return responseOk;
   };
 
@@ -71,37 +78,55 @@ const handleConnect = async(
         })
         .promise();
         
+        await notifyClients(connectionId);
         return responseOk;
       };
 
-    const handleGetClients = async(connectionId: string): Promise<APIGatewayProxyResult> => {
-      const output = await docClient
-      .scan({
-        TableName: CLIENT_TABLE_NAME,
-      })
-      .promise();
 
-      const clients = output.Items || [];
+    const notifyClients = async (connectionIdToExclude:string) => {
+      const clients = await getAllClients();
 
-    try{
-      await apiGw.postToConnection({
-        ConnectionId: connectionId,
-        Data: JSON.stringify(clients),
-      })
-      .promise();
-    } catch (e) {
-
-      if ((e as AWSError).statusCode !== 410){
-        throw e;
-      }
-        await docClient.delete({
+      await Promise.all(
+      clients.filter((client)=>client.connectionId !== connectionIdToExclude).map(async(client) => {
+      await postToConnection(client.connectionId, JSON.stringify(clients));
+      }),
+      );
+    };
+    const getAllClients = async(): Promise<Client[]>=>{
+        const output = await docClient.scan({
           TableName: CLIENT_TABLE_NAME,
-          Key: {
-            connectionId,
-          },
         })
-        .promise();  
-      } 
+        .promise();
+
+       const clients = output.Items || [];
+       return clients as Client[];
+      };
+
+    const postToConnection = async (connectionId: string, data: string) => {
+      try{
+        await apiGw.postToConnection({
+          ConnectionId: connectionId,
+          Data: data,
+        })
+        .promise();
+      } catch (e) {
+  
+        if ((e as AWSError).statusCode !== 410){
+          throw e;
+        }
+          await docClient.delete({
+            TableName: CLIENT_TABLE_NAME,
+            Key: {
+              connectionId,
+            },
+          })
+          .promise();  
+        } 
+      };
+    const handleGetClients = async(connectionId: string): Promise<APIGatewayProxyResult> => {
+      const clients = await getAllClients();
+
+      await postToConnection(connectionId, JSON.stringify(clients));
     
       return responseOk;
   };
